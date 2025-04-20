@@ -4,37 +4,50 @@
   <meta charset="UTF-8" />
   <title>Docházka – Kalendář</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #calendar { max-width: 900px; margin: 0 auto; }
-
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal {
-      background: white;
+    body {
+      font-family: sans-serif;
       padding: 20px;
-      border-radius: 10px;
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
     }
-    .modal button {
-      margin: 5px;
-      padding: 10px 20px;
+
+    #calendar {
+      max-width: 900px;
+      margin: 0 auto;
     }
+
+    .legend {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+
+    .legend span {
+      display: inline-block;
+      padding: 5px 10px;
+      margin-right: 10px;
+      border-radius: 3px;
+      color: white;
+    }
+
+    .green { background-color: green; }
+    .red { background-color: red; }
+    .gray { background-color: gray; }
+    .blue { background-color: #007bff; }
+    .yellow { background-color: #f9e79f; color: black; }
   </style>
 </head>
 <body>
   <h2>Docházka – Kalendář</h2>
   <div id="calendar"></div>
+
+  <div class="legend">
+    <strong>Legenda:</strong><br>
+    <span class="green">schválená dovolená</span>
+    <span class="red">zamítnutá dovolená</span>
+    <span class="gray">čeká na schválení</span>
+    <span class="blue">směna</span>
+    <span class="yellow">svátek</span>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
@@ -46,10 +59,9 @@
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.firebasestorage.app",
+      storageBucket: "dochazka-app.appspot.com",
       messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432",
-      measurementId: "G-G8PPKTK907"
+      appId: "1:912220280247:web:e0b27491b9234cba984432"
     };
 
     firebase.initializeApp(firebaseConfig);
@@ -58,113 +70,72 @@
 
     auth.onAuthStateChanged(user => {
       if (!user) {
-        alert("Přístup pouze pro přihlášené uživatele.");
+        alert("Přístup pouze pro přihlášené.");
         window.location.href = "index.html";
       } else {
         initCalendar(user.email);
       }
     });
 
-    function initCalendar(userEmail) {
+    async function initCalendar(userEmail) {
       const calendarEl = document.getElementById('calendar');
 
       const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
-        selectable: true,
-
         events: async function(fetchInfo, successCallback) {
           const events = [];
 
-          // Načítání žádostí o volno (jen pro přihlášeného uživatele)
-          const zadostiSnap = await db.collection("zadosti").get();
-          zadostiSnap.forEach(doc => {
-            const zadost = doc.data();
-            if (zadost.od && zadost.do && zadost.email === userEmail) {
-              let color = '#999';
-              if (zadost.stav === 'schváleno') color = 'green';
-              else if (zadost.stav === 'zamítnuto') color = 'red';
-
+          // DOVOLENÁ
+          const volnoSnap = await db.collection("zadosti").get();
+          volnoSnap.forEach(doc => {
+            const d = doc.data();
+            if (d.email === userEmail) {
+              const barva = d.stav === "schváleno" ? "green" :
+                            d.stav === "zamítnuto" ? "red" : "gray";
               events.push({
-                title: `${zadost.typ} (${zadost.stav})`,
-                start: zadost.od,
-                end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: color
+                title: d.typ,
+                start: d.od,
+                end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split("T")[0],
+                color: barva
               });
             }
           });
 
-          // Načítání směn (jen pro přihlášeného uživatele)
+          // SMĚNY
           const smenySnap = await db.collection("smeny").get();
           smenySnap.forEach(doc => {
-            const smena = doc.data();
-            if (smena.od && smena.do && smena.email === userEmail) {
+            const d = doc.data();
+            if (d.email === userEmail) {
               events.push({
                 title: "Směna",
-                start: smena.od,
-                end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
+                start: d.od,
+                end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split("T")[0],
                 color: "#007bff"
               });
             }
           });
 
-          successCallback(events);
-        },
+          // SVÁTKY
+          try {
+            const year = new Date().getFullYear();
+            const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`);
+            const svatky = await res.json();
+            svatky.forEach(s => {
+              events.push({
+                title: `Svátek – ${s.localName}`,
+                start: s.date,
+                color: "#f9e79f"
+              });
+            });
+          } catch (e) {
+            console.warn("Svátky se nepodařilo načíst:", e);
+          }
 
-        select: function (info) {
-          const start = info.startStr;
-          const endDate = new Date(info.end);
-          endDate.setDate(endDate.getDate() - 1);
-          const end = endDate.toISOString().split('T')[0];
-          showModal(start, end);
+          successCallback(events);
         }
       });
 
       calendar.render();
-    }
-
-    function showModal(start, end) {
-      const modal = document.createElement('div');
-      modal.className = 'modal-overlay';
-      modal.innerHTML = `
-        <div class="modal">
-          <h3>Vyber typ volna</h3>
-          <button onclick="selectType('dovolená')">Dovolená</button>
-          <button onclick="selectType('neplacené')">Neplacené volno</button>
-          <div id="summary" style="display:none; margin-top:15px;"></div>
-          <button id="confirmBtn" style="display:none;">Potvrdit žádost</button>
-        </div>
-      `;
-      document.body.appendChild(modal);
-
-      window.selectType = function(type) {
-        const summary = modal.querySelector('#summary');
-        summary.innerHTML = `
-          <p><strong>Typ volna:</strong> ${type}</p>
-          <p><strong>Od:</strong> ${start}</p>
-          <p><strong>Do:</strong> ${end}</p>
-        `;
-        summary.style.display = 'block';
-        const confirmBtn = modal.querySelector('#confirmBtn');
-        confirmBtn.style.display = 'inline-block';
-
-        confirmBtn.onclick = async () => {
-          const user = firebase.auth().currentUser;
-          if (user) {
-            await db.collection("zadosti").add({
-              email: user.email,
-              od: start,
-              do: end,
-              typ: type,
-              stav: "čeká na schválení"
-            });
-            alert("Žádost byla odeslána.");
-            document.body.removeChild(modal);
-            location.reload();
-          } else {
-            alert("Uživatel není přihlášen.");
-          }
-        };
-      };
     }
   </script>
 </body>
