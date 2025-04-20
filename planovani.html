@@ -56,8 +56,8 @@
       <option value="sestra@test.cz">sestra@test.cz</option>
       <option value="druhasestra@test.cz">druhasestra@test.cz</option>
     </select>
-    <br>
-    <button id="potvrditBtn">Přiřadit směnu</button>
+    <div id="souhrn" style="margin-top: 15px;"></div>
+    <button id="potvrditBtn">Potvrdit směnu</button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
@@ -82,13 +82,14 @@
 
     let startDate = null;
     let endDate = null;
+    let calendar = null;
 
     document.addEventListener("DOMContentLoaded", function () {
       const calendarEl = document.getElementById("calendar");
-      const calendar = new FullCalendar.Calendar(calendarEl, {
+
+      calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: "dayGridMonth",
         selectable: true,
-
         select: function (info) {
           startDate = info.startStr;
           const end = new Date(info.end);
@@ -96,20 +97,34 @@
           endDate = end.toISOString().split("T")[0];
 
           document.getElementById("range").textContent = `${startDate} – ${endDate}`;
+          document.getElementById("souhrn").innerHTML = "";
           document.getElementById("planovaniForm").style.display = "block";
         },
-
+        eventClick: async function(info) {
+          if (info.event.extendedProps.typ === "smena") {
+            const confirmDelete = confirm(`Opravdu chceš smazat směnu ${info.event.title}?`);
+            if (confirmDelete) {
+              const id = info.event.extendedProps.id;
+              await db.collection("smeny").doc(id).delete();
+              alert("Směna smazána.");
+              calendar.refetchEvents();
+            }
+          }
+        },
         events: async function(fetchInfo, successCallback) {
-          const smenySnap = await db.collection("smeny").get();
           const events = [];
+
+          const smenySnap = await db.collection("smeny").get();
           smenySnap.forEach(doc => {
             const d = doc.data();
             if (d.od && d.do && d.email) {
               events.push({
+                id: doc.id,
                 title: `Směna – ${d.email}`,
                 start: d.od,
                 end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff"
+                color: "#007bff",
+                typ: "smena"
               });
             }
           });
@@ -133,6 +148,19 @@
       });
 
       calendar.render();
+
+      document.getElementById("emailSelect").addEventListener("change", () => {
+        zobrazSouhrn();
+      });
+
+      function zobrazSouhrn() {
+        const email = document.getElementById("emailSelect").value;
+        document.getElementById("souhrn").innerHTML = `
+          <p><strong>Sestra:</strong> ${email}</p>
+          <p><strong>Od:</strong> ${startDate}</p>
+          <p><strong>Do:</strong> ${endDate}</p>
+        `;
+      }
 
       document.getElementById("potvrditBtn").addEventListener("click", async () => {
         const email = document.getElementById("emailSelect").value;
