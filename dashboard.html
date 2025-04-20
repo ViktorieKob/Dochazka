@@ -64,6 +64,18 @@
       font-size: 16px;
       margin-top: 10px;
     }
+
+    table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
@@ -91,6 +103,22 @@
     <div class="legend-item red">Zamítnutá dovolená</div>
     <div class="legend-item gray">Čeká na schválení</div>
     <div class="legend-item yellow">Státní svátek</div>
+  </div>
+
+  <!-- TABULKA SMĚN POD KALENDÁŘEM -->
+  <div id="smenyTableContainer">
+    <h3>Detaily směn</h3>
+    <table id="smenyTable">
+      <thead>
+        <tr>
+          <th>Datum</th>
+          <th>Pacient</th>
+          <th>Čas</th>
+          <th>Komentář</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <!-- SCRIPTS -->
@@ -158,8 +186,19 @@
 
             // SMĚNY
             const smenySnap = await db.collection("smeny").where("email", "==", userEmail).get();
+            const tabulkaTelo = document.querySelector("#smenyTable tbody");
+            tabulkaTelo.innerHTML = "";
+            const radky = [];
+
             smenySnap.forEach(doc => {
               const d = doc.data();
+              const datum = d.od || "—";
+              const pacient = d.pacient || "";
+              const cas = d.cas || "";
+              const komentar = d.komentar || "";
+
+              radky.push({ datum, pacient, cas, komentar });
+
               let color = "#007bff";
               if (userEmail === "druhasestra@test.cz") color = "#6f42c1";
               if (userEmail === "treti@test.cz") color = "#20c997";
@@ -170,6 +209,13 @@
                 end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split("T")[0],
                 color: color
               });
+            });
+
+            radky.sort((a, b) => a.datum.localeCompare(b.datum));
+            radky.forEach(r => {
+              const tr = document.createElement("tr");
+              tr.innerHTML = `<td>${r.datum}</td><td>${r.pacient}</td><td>${r.cas}</td><td>${r.komentar}</td>`;
+              tabulkaTelo.appendChild(tr);
             });
 
             // DOVOLENÁ
