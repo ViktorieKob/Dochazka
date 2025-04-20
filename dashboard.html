@@ -17,6 +17,7 @@
       margin: -20px -20px 20px -20px;
       overflow-x: auto;
       white-space: nowrap;
+      display: none;
     }
 
     nav a {
@@ -53,7 +54,7 @@
   </style>
 </head>
 <body>
-  <nav>
+  <nav id="navMenu">
     <a href="dashboard.html">Moje směny</a>
     <a href="zadosti.html">Žádosti</a>
     <a href="planovani.html">Plánování směn</a>
@@ -100,20 +101,25 @@
           return;
         }
 
+        const userEmail = user.email;
+        const isVedouci = userEmail === "vedouci@test.cz";
+        if (isVedouci) {
+          document.getElementById("navMenu").style.display = "block";
+        }
+
         const calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: "dayGridMonth",
           height: "auto",
           locale: 'cs',
           events: async function(fetchInfo, successCallback) {
             const events = [];
-            const mojeEmail = user.email;
 
-            const smenySnap = await db.collection("smeny").where("email", "==", mojeEmail).get();
+            const smenySnap = await db.collection("smeny").where("email", "==", userEmail).get();
             smenySnap.forEach(doc => {
               const d = doc.data();
               let color = "#007bff";
-              if (mojeEmail === "druhasestra@test.cz") color = "#6f42c1";
-              if (mojeEmail === "treti@test.cz") color = "#20c997";
+              if (userEmail === "druhasestra@test.cz") color = "#6f42c1";
+              if (userEmail === "treti@test.cz") color = "#20c997";
 
               events.push({
                 title: "Směna",
@@ -123,7 +129,7 @@
               });
             });
 
-            const dovolenaSnap = await db.collection("zadosti").where("email", "==", mojeEmail).get();
+            const dovolenaSnap = await db.collection("zadosti").where("email", "==", userEmail).get();
             dovolenaSnap.forEach(doc => {
               const d = doc.data();
               let color = d.stav === "schváleno" ? "green" : d.stav === "zamítnuto" ? "red" : "gray";
@@ -135,9 +141,10 @@
               });
             });
 
-            const currentYear = new Date().getFullYear();
-            const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${currentYear}/CZ`);
-            const holidays = await response.json();
+            const year = new Date().getFullYear();
+            const holidays = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`)
+              .then(res => res.json());
+
             holidays.forEach(holiday => {
               events.push({
                 title: holiday.localName,
@@ -149,14 +156,14 @@
 
             successCallback(events);
 
-            // Zobraz jen barvu směny přihlášené sestry
+            // Přidej legendu pro směnu jen konkrétní sestry
             const legend = document.getElementById("legend");
             const smenaLabel = document.createElement("div");
-            smenaLabel.className = "legend-item";
-            if (mojeEmail === "druhasestra@test.cz") smenaLabel.classList.add("purple");
-            else if (mojeEmail === "treti@test.cz") smenaLabel.classList.add("teal");
+            smenaLabel.classList.add("legend-item");
+            if (userEmail === "druhasestra@test.cz") smenaLabel.classList.add("purple");
+            else if (userEmail === "treti@test.cz") smenaLabel.classList.add("teal");
             else smenaLabel.classList.add("blue");
-            smenaLabel.textContent = `Směna – ${mojeEmail}`;
+            smenaLabel.textContent = `Směna – ${userEmail}`;
             legend.appendChild(smenaLabel);
           }
         });
