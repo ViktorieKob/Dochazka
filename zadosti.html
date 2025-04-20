@@ -1,38 +1,36 @@
-
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <title>Žádosti o volno – Vedoucí</title>
+  <meta charset="UTF-8">
+  <title>Žádosti o volno</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-    th { background-color: #f0f0f0; }
-    button { margin-right: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+    button { padding: 6px 12px; margin: 0 5px; }
   </style>
 </head>
 <body>
   <h2>Žádosti o volno</h2>
-  <table>
+  <table id="zadostiTable">
     <thead>
       <tr>
         <th>Email</th>
-        <th>Datum</th>
+        <th>Od</th>
+        <th>Do</th>
         <th>Typ</th>
         <th>Stav</th>
         <th>Akce</th>
       </tr>
     </thead>
-    <tbody id="zadosti-tabulka">
-      <tr><td colspan="5">Načítání žádostí...</td></tr>
-    </tbody>
+    <tbody></tbody>
   </table>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
 
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
@@ -43,46 +41,52 @@
       measurementId: "G-G8PPKTK907"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
 
-    async function nactiZadosti() {
-      const tabulka = document.getElementById("zadosti-tabulka");
-      tabulka.innerHTML = "";
+    const tbody = document.querySelector('#zadostiTable tbody');
 
-      const querySnapshot = await getDocs(collection(db, "zadosti"));
-      querySnapshot.forEach((docSnapshot) => {
-        const data = docSnapshot.data();
-        const tr = document.createElement("tr");
+    function nactiZadosti() {
+      db.collection("zadosti").get().then(snapshot => {
+        tbody.innerHTML = '';
+        snapshot.forEach(doc => {
+          const zadost = doc.data();
+          const tr = document.createElement('tr');
 
-        tr.innerHTML = `
-          <td>${data.email}</td>
-          <td>${data.datum}</td>
-          <td>${data.typ}</td>
-          <td>${data.stav}</td>
-          <td>
-            <button onclick="schval('${docSnapshot.id}')">Schválit</button>
-            <button onclick="zamitni('${docSnapshot.id}')">Zamítnout</button>
-          </td>
-        `;
-
-        tabulka.appendChild(tr);
+          tr.innerHTML = `
+            <td>${zadost.email}</td>
+            <td>${zadost.od}</td>
+            <td>${zadost.do}</td>
+            <td>${zadost.typ}</td>
+            <td>${zadost.stav}</td>
+            <td>
+              <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
+              <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
       });
     }
 
-    window.schval = async function(id) {
-      const ref = doc(db, "zadosti", id);
-      await updateDoc(ref, { stav: "schváleno" });
-      nactiZadosti();
-    };
+    function aktualizujZadost(id, stav) {
+      db.collection("zadosti").doc(id).update({ stav: stav })
+        .then(() => {
+          alert("Žádost aktualizována.");
+          nactiZadosti();
+        });
+    }
 
-    window.zamitni = async function(id) {
-      const ref = doc(db, "zadosti", id);
-      await updateDoc(ref, { stav: "zamítnuto" });
-      nactiZadosti();
-    };
-
-    nactiZadosti();
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // Můžeš sem přidat podmínku, že jen vedoucí má přístup
+        nactiZadosti();
+      } else {
+        alert("Přístup pouze pro přihlášené uživatele.");
+        window.location.href = "index.html";
+      }
+    });
   </script>
 </body>
 </html>
