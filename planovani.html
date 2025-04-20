@@ -119,19 +119,29 @@
           const events = [];
 
           const smenySnap = await db.collection("smeny").get();
-          smenySnap.forEach(doc => {
-            const d = doc.data();
-            if (d.od && d.do && d.email) {
-              events.push({
-                id: doc.id,
-                title: `Směna – ${d.email}`,
-                start: d.od,
-                end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff",
-                typ: "smena"
-              });
-            }
-          });
+smenySnap.forEach(doc => {
+  const d = doc.data();
+  if (d.od && d.do && d.email) {
+    let barva = "#007bff"; // výchozí modrá
+
+    if (d.email === "sestra@test.cz") {
+      barva = "#007bff"; // modrá
+    } else if (d.email === "druhasestra@test.cz") {
+      barva = "#6f42c1"; // fialová
+    } else if (d.email === "treti@test.cz") {
+      barva = "#20c997"; // zelenomodrá
+    }
+
+    events.push({
+      id: doc.id,
+      title: `Směna – ${d.email}`,
+      start: d.od,
+      end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split('T')[0],
+      color: barva,
+      typ: "smena"
+    });
+  }
+});
 
           const volnoSnap = await db.collection("zadosti").get();
           volnoSnap.forEach(doc => {
