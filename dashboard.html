@@ -2,118 +2,108 @@
 <html lang="cs">
 <head>
   <meta charset="UTF-8" />
-  <title>Docházka – Přehled</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+  <title>Docházka – Kalendář</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <style>
-    #calendar {
-      max-width: 900px;
-      margin: 40px auto;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    #calendar { max-width: 900px; margin: 0 auto; }
+    button { margin: 5px; }
   </style>
 </head>
 <body>
   <h2>Docházka – Kalendář</h2>
   <div id="calendar"></div>
 
-<!-- ... zbytek hlavičky zůstává stejný -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { Calendar } from "https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js";
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-  import { getAuth } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
+      authDomain: "dochazka-app.firebaseapp.com",
+      projectId: "dochazka-app",
+      storageBucket: "dochazka-app.firebasestorage.app",
+      messagingSenderId: "912220280247",
+      appId: "1:912220280247:web:e0b27491b9234cba984432",
+      measurementId: "G-G8PPKTK907"
+    };
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
-    authDomain: "dochazka-app.firebaseapp.com",
-    projectId: "dochazka-app",
-    storageBucket: "dochazka-app.firebasestorage.app",
-    messagingSenderId: "912220280247",
-    appId: "1:912220280247:web:e0b27491b9234cba984432",
-    measurementId: "G-G8PPKTK907"
-  };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
+    document.addEventListener("DOMContentLoaded", function () {
+      const calendarEl = document.getElementById("calendar");
+      let selectedRange = { start: null, end: null };
+      let selectedType = null;
 
-  document.addEventListener("DOMContentLoaded", function () {
-    const calendarEl = document.getElementById("calendar");
-    let selectedDates = [];
-    let selectedType = null;
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: "dayGridMonth",
-      selectable: true,
-      select: function(info) {
-        selectedDates = [];
-        let current = new Date(info.start);
-        while (current <= info.end) {
-          selectedDates.push(current.toISOString().split('T')[0]);
-          current.setDate(current.getDate() + 1);
+      const calendar = new Calendar(calendarEl, {
+        initialView: "dayGridMonth",
+        selectable: true,
+        select: function(info) {
+          selectedRange.start = info.startStr;
+          const endDate = new Date(info.end);
+          endDate.setDate(endDate.getDate() - 1);
+          selectedRange.end = endDate.toISOString().split('T')[0];
+          showTypeSelection();
         }
-        selectedDates.pop(); // remove the end date (exclusive in FullCalendar)
+      });
 
-        showTypeSelection();
-      }
-    });
+      calendar.render();
 
-    calendar.render();
-
-    function showTypeSelection() {
-      const modal = document.createElement("div");
-      modal.innerHTML = `
-        <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:#00000088; display:flex; align-items:center; justify-content:center; z-index:1000;">
-          <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
-            <h3>Vyber typ volna</h3>
-            <div style="margin-bottom: 15px;">
-              <button id="btn-dovolena">Dovolená</button>
-              <button id="btn-neplacene">Neplacené volno</button>
+      function showTypeSelection() {
+        const modal = document.createElement("div");
+        modal.innerHTML = `
+          <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:#00000088; display:flex; align-items:center; justify-content:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
+              <h3>Vyber typ volna</h3>
+              <div style="margin-bottom: 15px;">
+                <button id="btn-dovolena">Dovolená</button>
+                <button id="btn-neplacene">Neplacené volno</button>
+              </div>
+              <div id="volba-info" style="margin-bottom: 15px; display:none;"></div>
+              <button id="btn-potvrdit" style="display:none;">Potvrdit žádost</button>
             </div>
-            <div id="volba-info" style="margin-bottom: 15px; display:none;"></div>
-            <button id="btn-potvrdit" style="display:none;">Potvrdit žádost</button>
           </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-
-      const infoDiv = modal.querySelector("#volba-info");
-      const confirmBtn = modal.querySelector("#btn-potvrdit");
-
-      function zobrazSouhrn(typ) {
-        selectedType = typ;
-        infoDiv.innerHTML = `
-          <p><strong>Typ volna:</strong> ${typ}</p>
-          <p><strong>Vybrané dny:</strong></p>
-          <ul style="text-align:left; max-height:150px; overflow-y:auto;">${selectedDates.map(d => `<li>${d}</li>`).join("")}</ul>
         `;
-        infoDiv.style.display = "block";
-        confirmBtn.style.display = "inline-block";
-      }
+        document.body.appendChild(modal);
 
-      modal.querySelector("#btn-dovolena").onclick = () => zobrazSouhrn("dovolená");
-      modal.querySelector("#btn-neplacene").onclick = () => zobrazSouhrn("neplacené volno");
+        const infoDiv = modal.querySelector("#volba-info");
+        const confirmBtn = modal.querySelector("#btn-potvrdit");
 
-      confirmBtn.onclick = async () => {
-        const user = auth.currentUser;
-        if (user) {
-          for (let date of selectedDates) {
+        function zobrazSouhrn(typ) {
+          selectedType = typ;
+          infoDiv.innerHTML = `
+            <p><strong>Typ volna:</strong> ${typ}</p>
+            <p><strong>Rozmezí:</strong> ${selectedRange.start} – ${selectedRange.end}</p>
+          `;
+          infoDiv.style.display = "block";
+          confirmBtn.style.display = "inline-block";
+        }
+
+        modal.querySelector("#btn-dovolena").onclick = () => zobrazSouhrn("dovolená");
+        modal.querySelector("#btn-neplacene").onclick = () => zobrazSouhrn("neplacené volno");
+
+        confirmBtn.onclick = async () => {
+          const user = auth.currentUser;
+          if (user) {
             await addDoc(collection(db, "zadosti"), {
-              datum: date,
+              od: selectedRange.start,
+              do: selectedRange.end,
               typ: selectedType,
               email: user.email,
               stav: "čeká na schválení"
             });
+            alert("Žádost odeslána.");
+          } else {
+            alert("Uživatel není přihlášen.");
           }
-          alert("Žádost odeslána.");
-        } else {
-          alert("Uživatel není přihlášen.");
-        }
-        document.body.removeChild(modal);
-      };
-    }
-  });
-</script>
-  
+          document.body.removeChild(modal);
+        };
+      }
+    });
+  </script>
 </body>
 </html>
