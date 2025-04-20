@@ -49,6 +49,15 @@
   </style>
 </head>
 <body>
+<div id="vedouciMenu" style="display: none;">
+  <nav style="background-color: #0057a0; padding: 10px;">
+    <a href="dashboard.html" style="color: white; margin-right: 20px; text-decoration: none;">Moje směny</a>
+    <a href="zadosti.html" style="color: white; margin-right: 20px; text-decoration: none;">Žádosti</a>
+    <a href="planovani.html" style="color: white; margin-right: 20px; text-decoration: none;">Plánování směn</a>
+    <a href="smeny.html" style="color: white; text-decoration: none;">Úprava směn</a>
+  </nav>
+</div>
+  
   <h2>Docházka – Kalendář</h2>
   <div id="calendar"></div>
 
@@ -181,6 +190,19 @@
         });
       });
     }
+
+    auth.onAuthStateChanged(user => {
+  if (user) {
+    // Zobrazit menu jen pro vedoucího
+    if (user.email === "vedouci@test.cz") {
+      document.getElementById("vedouciMenu").style.display = "block";
+    }
+    // Načíst data atd. (zbytek tvého stávajícího kódu zůstává)
+  } else {
+    alert("Přístup pouze pro přihlášené uživatele.");
+    window.location.href = "index.html";
+  }
+});
   </script>
 </body>
 </html>
