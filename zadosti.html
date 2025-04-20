@@ -4,58 +4,70 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Žádosti o volno</title>
+  <link rel="stylesheet" href="style.css" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 20px 0;
     }
+
     table {
-      width: 100%;
+      min-width: 600px;
       border-collapse: collapse;
-      margin-top: 20px;
+      width: 100%;
     }
+
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       padding: 8px;
-      text-align: left;
+      text-align: center;
     }
+
     th {
       background-color: #f2f2f2;
     }
-    .schvaleno {
+
+    .row-schvaleno {
       background-color: #d4edda;
     }
-    .zamítnuto {
+
+    .row-zamitnuto {
       background-color: #f8d7da;
     }
-    .ceka {
+
+    .row-ceka {
       background-color: #fff3cd;
+    }
+
+    button {
+      margin: 0 2px;
     }
   </style>
 </head>
 <body>
-  <h2>Žádosti o volno</h2>
-  <table id="requestsTable">
-    <thead>
-      <tr>
-        <th>Email</th>
-        <th>Od</th>
-        <th>Do</th>
-        <th>Typ</th>
-        <th>Stav</th>
-        <th>Akce</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Data budou doplněna skriptem -->
-    </tbody>
-  </table>
+  <h2 style="margin-left: 10px;">Žádosti o volno</h2>
+  <div class="table-wrapper">
+    <table id="requestsTable">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Od</th>
+          <th>Do</th>
+          <th>Typ</th>
+          <th>Stav</th>
+          <th>Akce</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
     import {
-      getFirestore, collection, getDocs, updateDoc, deleteDoc, doc
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+      getFirestore, collection, getDocs, updateDoc,
+      deleteDoc, doc
+    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
@@ -63,59 +75,60 @@
       projectId: "dochazka-app",
       storageBucket: "dochazka-app.appspot.com",
       messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432"
+      appId: "1:912220280247:web:e0b27491b9234cba984432",
+      measurementId: "G-G8PPKTK907"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const loadRequests = async () => {
-      const querySnapshot = await getDocs(collection(db, "zadosti"));
-      const tableBody = document.querySelector("#requestsTable tbody");
+    const tableBody = document.querySelector("#requestsTable tbody");
+
+    async function loadRequests() {
       tableBody.innerHTML = "";
+      const querySnapshot = await getDocs(collection(db, "volno"));
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        const tr = document.createElement("tr");
 
-        const stavClass = data.stav === "schváleno"
-          ? "schvaleno"
-          : data.stav === "zamítnuto"
-          ? "zamítnuto"
-          : "ceka";
+        const row = document.createElement("tr");
+        row.classList.add(
+          data.status === "schváleno" ? "row-schvaleno" :
+          data.status === "zamítnuto" ? "row-zamitnuto" :
+          "row-ceka"
+        );
 
-        tr.classList.add(stavClass);
-
-        tr.innerHTML = `
-          <td>${data.email}</td>
-          <td>${data.od}</td>
-          <td>${data.do}</td>
-          <td>${data.typ}</td>
-          <td>${data.stav}</td>
+        row.innerHTML = `
+          <td>${data.email || ""}</td>
+          <td>${data.dateFrom || "–"}</td>
+          <td>${data.dateTo || "–"}</td>
+          <td>${data.type || ""}</td>
+          <td>${data.status || ""}</td>
           <td>
-            <button onclick="confirmAction(() => updateStatus('${docSnap.id}', 'schváleno'))">Schválit</button>
-            <button onclick="confirmAction(() => updateStatus('${docSnap.id}', 'zamítnuto'))">Zamítnout</button>
-            <button onclick="confirmAction(() => deleteRequest('${docSnap.id}'))">Smazat</button>
+            <button onclick="confirmUpdate('${docSnap.id}', 'schváleno')">Schválit</button>
+            <button onclick="confirmUpdate('${docSnap.id}', 'zamítnuto')">Zamítnout</button>
+            <button onclick="confirmDelete('${docSnap.id}')">Smazat</button>
           </td>
         `;
-        tableBody.appendChild(tr);
+        tableBody.appendChild(row);
       });
-    };
+    }
 
-    window.updateStatus = async (id, status) => {
-      await updateDoc(doc(db, "zadosti", id), { stav: status });
+    window.confirmUpdate = async (id, status) => {
+      const potvrdit = confirm(`Opravdu chceš ${status === "schváleno" ? "schválit" : "zamítnout"} tuto žádost?`);
+      if (!potvrdit) return;
+
+      const docRef = doc(db, "volno", id);
+      await updateDoc(docRef, { status });
       loadRequests();
     };
 
-    window.deleteRequest = async (id) => {
-      await deleteDoc(doc(db, "zadosti", id));
-      loadRequests();
-    };
+    window.confirmDelete = async (id) => {
+      const potvrdit = confirm("Opravdu chceš smazat tuto žádost?");
+      if (!potvrdit) return;
 
-    window.confirmAction = (callback) => {
-      if (confirm("Opravdu chcete provést tuto akci?")) {
-        callback();
-      }
+      await deleteDoc(doc(db, "volno", id));
+      loadRequests();
     };
 
     loadRequests();
