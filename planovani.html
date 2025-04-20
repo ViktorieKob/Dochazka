@@ -4,39 +4,41 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Plánování směn</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 20px;
+      font-family: Arial, sans-serif;
+      background-color: #f3f7f9;
+      margin: 0;
+      padding: 0;
     }
 
     nav {
-      background-color: #0057a0;
+      background-color: #004b8d;
       padding: 10px;
-      margin: -20px -20px 20px -20px;
+      display: flex;
+      justify-content: flex-start;
+      gap: 15px;
     }
 
     nav a {
       color: white;
-      margin-right: 20px;
       text-decoration: none;
+      font-weight: bold;
     }
 
-    #calendar {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .modal {
+    h2 {
       text-align: center;
       margin-top: 20px;
     }
 
-    select, button {
-      padding: 10px;
-      font-size: 16px;
-      margin: 5px;
+    #calendar {
+      max-width: 900px;
+      margin: 40px auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
     }
   </style>
 </head>
@@ -49,130 +51,86 @@
   <h2>Plánování směn</h2>
   <div id="calendar"></div>
 
-  <div class="modal" id="planovaniForm" style="display: none;">
-    <h3>Vybrané dny: <span id="range"></span></h3>
-    <label for="emailSelect">Vyber sestru:</label>
-    <select id="emailSelect">
-      <option value="sestra@test.cz">sestra@test.cz</option>
-      <option value="druhasestra@test.cz">druhasestra@test.cz</option>
-    </select>
-    <div id="souhrn" style="margin-top: 15px;"></div>
-    <button id="potvrditBtn">Potvrdit směnu</button>
-  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      onSnapshot,
+      query,
+      where,
+      deleteDoc,
+      doc
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-
-  <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
-      authDomain: "dochazka-app.firebaseapp.com",
-      projectId: "dochazka-app",
-      storageBucket: "dochazka-app.appspot.com",
-      messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432",
-      measurementId: "G-G8PPKTK907"
+      apiKey: "AIzaSyDp6wW...",
+      authDomain: "dochazka-test.firebaseapp.com",
+      projectId: "dochazka-test",
+      storageBucket: "dochazka-test.appspot.com",
+      messagingSenderId: "679652526157",
+      appId: "1:679652526157:web:84e05e7fdc5b0f4c6ee780"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    let startDate = null;
-    let endDate = null;
-    let calendar = null;
+    const currentUserEmail = sessionStorage.getItem("userEmail");
+    const isManager = currentUserEmail === "vedouci@test.cz";
 
-    document.addEventListener("DOMContentLoaded", function () {
-      const calendarEl = document.getElementById("calendar");
+    const calendarEl = document.getElementById("calendar");
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: "dayGridMonth",
+      selectable: isManager,
+      select: async function (info) {
+        if (!isManager) return;
 
-      calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: "dayGridMonth",
-        selectable: true,
-        select: function (info) {
-          startDate = info.startStr;
-          const end = new Date(info.end);
-          end.setDate(end.getDate() - 1);
-          endDate = end.toISOString().split("T")[0];
+        const email = prompt("Zadej email sestry, pro kterou směnu plánuješ:");
+        if (!email) return;
 
-          document.getElementById("range").textContent = `${startDate} – ${endDate}`;
-          document.getElementById("souhrn").innerHTML = "";
-          document.getElementById("planovaniForm").style.display = "block";
-        },
-        eventClick: async function(info) {
-          if (info.event.extendedProps.typ === "smena") {
-            const confirmDelete = confirm(`Opravdu chceš smazat směnu ${info.event.title}?`);
-            if (confirmDelete) {
-              const id = info.event.extendedProps.id;
-              await db.collection("smeny").doc(id).delete();
-              alert("Směna smazána.");
-              calendar.refetchEvents();
-            }
-          }
-        },
-        events: async function(fetchInfo, successCallback) {
-          const events = [];
+        const confirm = window.confirm(`Přidat směnu pro ${email} od ${info.startStr} do ${info.endStr.slice(0, 10)}?`);
+        if (!confirm) return;
 
-          const smenySnap = await db.collection("smeny").get();
-          smenySnap.forEach(doc => {
-            const d = doc.data();
-            if (d.od && d.do && d.email) {
-              events.push({
-                id: doc.id,
-                title: `Směna – ${d.email}`,
-                start: d.od,
-                end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff",
-                typ: "smena"
-              });
-            }
-          });
-
-          const volnoSnap = await db.collection("zadosti").get();
-          volnoSnap.forEach(doc => {
-            const d = doc.data();
-            if (d.od && d.do && d.email) {
-              const barva = d.stav === "schváleno" ? "green" : d.stav === "zamítnuto" ? "red" : "#999";
-              events.push({
-                title: `${d.typ} – ${d.email}`,
-                start: d.od,
-                end: new Date(new Date(d.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: barva
-              });
-            }
-          });
-
-          successCallback(events);
-        }
-      });
-
-      calendar.render();
-
-      document.getElementById("emailSelect").addEventListener("change", () => {
-        zobrazSouhrn();
-      });
-
-      function zobrazSouhrn() {
-        const email = document.getElementById("emailSelect").value;
-        document.getElementById("souhrn").innerHTML = `
-          <p><strong>Sestra:</strong> ${email}</p>
-          <p><strong>Od:</strong> ${startDate}</p>
-          <p><strong>Do:</strong> ${endDate}</p>
-        `;
-      }
-
-      document.getElementById("potvrditBtn").addEventListener("click", async () => {
-        const email = document.getElementById("emailSelect").value;
-        await db.collection("smeny").add({
-          email: email,
-          od: startDate,
-          do: endDate
+        await addDoc(collection(db, "směny"), {
+          title: `Směna – ${email}`,
+          start: info.startStr,
+          end: info.endStr,
+          email: email
         });
+      },
+      eventClick: async function (info) {
+        const event = info.event;
+        const docId = event.extendedProps._id;
+        const start = new Date(event.start);
+        const datum = start.toLocaleDateString("cs-CZ");
 
-        alert("Směna přiřazena.");
-        document.getElementById("planovaniForm").style.display = "none";
-        calendar.refetchEvents();
+        if (isManager) {
+          const potvrdit = window.confirm(`Opravdu chceš smazat směnu ${event.title} dne ${datum}?`);
+          if (potvrdit && docId) {
+            await deleteDoc(doc(db, "směny", docId));
+          }
+        }
+      },
+      events: []
+    });
+
+    calendar.render();
+
+    const směnyQuery = isManager
+      ? collection(db, "směny")
+      : query(collection(db, "směny"), where("email", "==", currentUserEmail));
+
+    onSnapshot(směnyQuery, (snapshot) => {
+      calendar.removeAllEvents();
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        calendar.addEvent({
+          title: data.title,
+          start: data.start,
+          end: data.end,
+          _id: doc.id
+        });
       });
     });
   </script>
