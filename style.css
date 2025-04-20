@@ -46,3 +46,15 @@ button {
 button:hover {
   background-color: #003d75;
 }
+
+.radek-schvaleno {
+  background-color: #d4edda; /* světle zelená */
+}
+
+.radek-zamitnuto {
+  background-color: #f8d7da; /* světle červená */
+}
+
+.radek-ceka {
+  background-color: #fff3cd; /* světle žlutá */
+}
