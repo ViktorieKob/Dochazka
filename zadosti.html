@@ -1,137 +1,112 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Žádosti o volno</title>
-  <link rel="stylesheet" href="style.css" />
   <style>
-    .table-wrapper {
-      overflow-x: auto;
-      margin: 20px 0;
-    }
-
-    table {
-      min-width: 600px;
-      border-collapse: collapse;
-      width: 100%;
-    }
-
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-    }
-
-    th {
-      background-color: #f2f2f2;
-    }
-
-    .row-schvaleno {
-      background-color: #d4edda;
-    }
-
-    .row-zamitnuto {
-      background-color: #f8d7da;
-    }
-
-    .row-ceka {
-      background-color: #fff3cd;
-    }
-
-    button {
-      margin: 0 2px;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+    button { padding: 6px 12px; margin: 0 5px; }
   </style>
 </head>
 <body>
-  <h2 style="margin-left: 10px;">Žádosti o volno</h2>
-  <div class="table-wrapper">
-    <table id="requestsTable">
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Od</th>
-          <th>Do</th>
-          <th>Typ</th>
-          <th>Stav</th>
-          <th>Akce</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <h2>Žádosti o volno</h2>
+  <table id="zadostiTable">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Od</th>
+        <th>Do</th>
+        <th>Typ</th>
+        <th>Stav</th>
+        <th>Akce</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-    import {
-      getFirestore, collection, getDocs, updateDoc,
-      deleteDoc, doc
-    } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
 
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.appspot.com",
+      storageBucket: "dochazka-app.firebasestorage.app",
       messagingSenderId: "912220280247",
       appId: "1:912220280247:web:e0b27491b9234cba984432",
       measurementId: "G-G8PPKTK907"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
 
-    const tableBody = document.querySelector("#requestsTable tbody");
+    const tbody = document.querySelector('#zadostiTable tbody');
 
-    async function loadRequests() {
-      tableBody.innerHTML = "";
-      const querySnapshot = await getDocs(collection(db, "volno"));
+    function nactiZadosti() {
+      db.collection("zadosti").get().then(snapshot => {
+        tbody.innerHTML = '';
+        snapshot.forEach(doc => {
+          const zadost = doc.data();
 
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
+          const stav = zadost.stav || '—';
+          const trClass =
+            stav === "schváleno" ? "radek-schvaleno" :
+            stav === "zamítnuto" ? "radek-zamitnuto" :
+            "radek-ceka";
 
-        const row = document.createElement("tr");
-        row.classList.add(
-          data.status === "schváleno" ? "row-schvaleno" :
-          data.status === "zamítnuto" ? "row-zamitnuto" :
-          "row-ceka"
-        );
+          const tr = document.createElement('tr');
+          tr.className = trClass;
 
-        row.innerHTML = `
-          <td>${data.email || ""}</td>
-          <td>${data.dateFrom || "–"}</td>
-          <td>${data.dateTo || "–"}</td>
-          <td>${data.type || ""}</td>
-          <td>${data.status || ""}</td>
-          <td>
-            <button onclick="confirmUpdate('${docSnap.id}', 'schváleno')">Schválit</button>
-            <button onclick="confirmUpdate('${docSnap.id}', 'zamítnuto')">Zamítnout</button>
-            <button onclick="confirmDelete('${docSnap.id}')">Smazat</button>
-          </td>
-        `;
-        tableBody.appendChild(row);
+          tr.innerHTML = `
+            <td>${zadost.email || ''}</td>
+            <td>${zadost.od || '—'}</td>
+            <td>${zadost.do || '—'}</td>
+            <td>${zadost.typ || '—'}</td>
+            <td>${stav}</td>
+            <td>
+              <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
+              <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
+              <button onclick="smazatZadost('${doc.id}')">Smazat</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
       });
     }
 
-    window.confirmUpdate = async (id, status) => {
-      const potvrdit = confirm(`Opravdu chceš ${status === "schváleno" ? "schválit" : "zamítnout"} tuto žádost?`);
+    function aktualizujZadost(id, stav) {
+      const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
       if (!potvrdit) return;
 
-      const docRef = doc(db, "volno", id);
-      await updateDoc(docRef, { status });
-      loadRequests();
-    };
+      db.collection("zadosti").doc(id).update({ stav: stav })
+        .then(() => {
+          alert(`Žádost byla ${stav}.`);
+          nactiZadosti();
+        });
+    }
 
-    window.confirmDelete = async (id) => {
-      const potvrdit = confirm("Opravdu chceš smazat tuto žádost?");
-      if (!potvrdit) return;
+    function smazatZadost(id) {
+      if (confirm("Opravdu chceš tuto žádost smazat?")) {
+        db.collection("zadosti").doc(id).delete().then(() => {
+          alert("Žádost byla smazána.");
+          nactiZadosti();
+        });
+      }
+    }
 
-      await deleteDoc(doc(db, "volno", id));
-      loadRequests();
-    };
-
-    loadRequests();
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        nactiZadosti();
+      } else {
+        alert("Přístup pouze pro přihlášené uživatele.");
+        window.location.href = "index.html";
+      }
+    });
   </script>
 </body>
 </html>
