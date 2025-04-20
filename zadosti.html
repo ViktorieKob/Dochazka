@@ -72,12 +72,15 @@
     }
 
     function aktualizujZadost(id, stav) {
-      db.collection("zadosti").doc(id).update({ stav: stav })
-        .then(() => {
-          alert("Žádost aktualizována.");
-          nactiZadosti();
-        });
-    }
+  const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
+  if (!potvrdit) return;
+
+  db.collection("zadosti").doc(id).update({ stav: stav })
+    .then(() => {
+      alert(`Žádost byla ${stav}.`);
+      nactiZadosti();
+    });
+}
 
     function smazatZadost(id) {
       if (confirm("Opravdu chceš tuto žádost smazat?")) {
