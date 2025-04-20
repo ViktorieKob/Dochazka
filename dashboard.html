@@ -46,7 +46,7 @@
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.appspot.com",
+      storageBucket: "dochazka-app.firebasestorage.app",
       messagingSenderId: "912220280247",
       appId: "1:912220280247:web:e0b27491b9234cba984432",
       measurementId: "G-G8PPKTK907"
@@ -65,7 +65,7 @@
       }
     });
 
-    async function initCalendar(userEmail) {
+    function initCalendar(userEmail) {
       const calendarEl = document.getElementById('calendar');
 
       const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -75,7 +75,7 @@
         events: async function(fetchInfo, successCallback) {
           const events = [];
 
-          // Žádosti o volno
+          // Načítání žádostí o volno (jen pro přihlášeného uživatele)
           const zadostiSnap = await db.collection("zadosti").get();
           zadostiSnap.forEach(doc => {
             const zadost = doc.data();
@@ -93,7 +93,7 @@
             }
           });
 
-          // Směny
+          // Načítání směn (jen pro přihlášeného uživatele)
           const smenySnap = await db.collection("smeny").get();
           smenySnap.forEach(doc => {
             const smena = doc.data();
@@ -102,27 +102,10 @@
                 title: "Směna",
                 start: smena.od,
                 end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff",
-                typ: "smena"
+                color: "#007bff"
               });
             }
           });
-
-          // Státní svátky
-          const currentYear = new Date().getFullYear();
-          try {
-            const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${currentYear}/CZ`);
-            const holidays = await response.json();
-            holidays.forEach(svatek => {
-              events.push({
-                title: `Svátek – ${svatek.localName}`,
-                start: svatek.date,
-                color: "#fff2b2"
-              });
-            });
-          } catch (error) {
-            console.error("Chyba při načítání svátků:", error);
-          }
 
           successCallback(events);
         },
