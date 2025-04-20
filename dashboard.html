@@ -16,25 +16,57 @@
   <h2>Docházka – Kalendář</h2>
   <div id="calendar"></div>
 
+<!-- ... zbytek hlavičky zůstává stejný -->
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const calendarEl = document.getElementById("calendar");
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
-      const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: "dayGridMonth",
-        locale: "cs",
-        dateClick: function (info) {
-          const typ = prompt("Zadej typ volna (např. dovolená, neplacené volno):");
-          if (typ) {
-            alert(`Žádost o "${typ}" na den ${info.dateStr} odeslána (zatím bez uložení).`);
-            // Tady později přidáme ukládání do Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
+    authDomain: "dochazka-app.firebaseapp.com",
+    projectId: "dochazka-app",
+    storageBucket: "dochazka-app.firebasestorage.app",
+    messagingSenderId: "912220280247",
+    appId: "1:912220280247:web:e0b27491b9234cba984432",
+    measurementId: "G-G8PPKTK907"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const calendarEl = document.getElementById("calendar");
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: "dayGridMonth",
+      locale: "cs",
+      dateClick: async function (info) {
+        const typ = prompt("Vyber typ volna: napiš 'dovolená' nebo 'neplacené'");
+        if (typ && (typ === "dovolená" || typ === "neplacené")) {
+          const user = auth.currentUser;
+          if (user) {
+            await addDoc(collection(db, "zadosti"), {
+              datum: info.dateStr,
+              typ: typ,
+              email: user.email,
+              stav: "čeká na schválení"
+            });
+            alert("Žádost odeslána.");
+          } else {
+            alert("Uživatel není přihlášen.");
           }
-        },
-      });
-
-      calendar.render();
+        } else {
+          alert("Zadej správně 'dovolená' nebo 'neplacené'.");
+        }
+      }
     });
-  </script>
+
+    calendar.render();
+  });
+</script>
+  
 </body>
 </html>
