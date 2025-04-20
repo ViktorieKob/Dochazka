@@ -56,15 +56,16 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    // Přesměrování pokud není přihlášený
     auth.onAuthStateChanged(user => {
       if (!user) {
         alert("Přístup pouze pro přihlášené uživatele.");
         window.location.href = "index.html";
+      } else {
+        initCalendar(user.email);
       }
     });
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function initCalendar(userEmail) {
       const calendarEl = document.getElementById('calendar');
 
       const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -72,21 +73,36 @@
         selectable: true,
 
         events: async function(fetchInfo, successCallback) {
-          const snapshot = await db.collection("zadosti").get();
           const events = [];
 
-          snapshot.forEach(doc => {
+          // Načítání žádostí o volno (jen pro přihlášeného uživatele)
+          const zadostiSnap = await db.collection("zadosti").get();
+          zadostiSnap.forEach(doc => {
             const zadost = doc.data();
-            if (zadost.od && zadost.do) {
-              let color = '#999'; // výchozí šedá
+            if (zadost.od && zadost.do && zadost.email === userEmail) {
+              let color = '#999';
               if (zadost.stav === 'schváleno') color = 'green';
               else if (zadost.stav === 'zamítnuto') color = 'red';
 
               events.push({
-                title: `${zadost.email} – ${zadost.typ} (${zadost.stav})`,
+                title: `${zadost.typ} (${zadost.stav})`,
                 start: zadost.od,
                 end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
                 color: color
+              });
+            }
+          });
+
+          // Načítání směn (jen pro přihlášeného uživatele)
+          const smenySnap = await db.collection("smeny").get();
+          smenySnap.forEach(doc => {
+            const smena = doc.data();
+            if (smena.od && smena.do && smena.email === userEmail) {
+              events.push({
+                title: "Směna",
+                start: smena.od,
+                end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
+                color: "#007bff"
               });
             }
           });
@@ -104,7 +120,7 @@
       });
 
       calendar.render();
-    });
+    }
 
     function showModal(start, end) {
       const modal = document.createElement('div');
@@ -143,6 +159,7 @@
             });
             alert("Žádost byla odeslána.");
             document.body.removeChild(modal);
+            location.reload();
           } else {
             alert("Uživatel není přihlášen.");
           }
