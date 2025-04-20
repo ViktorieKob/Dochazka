@@ -83,59 +83,67 @@
         initialView: 'dayGridMonth',
         selectable: true,
 
-        events: async function(fetchInfo, successCallback) {
+        events: function(fetchInfo, successCallback, failureCallback) {
           const events = [];
 
-          // Žádosti
-          const zadostiSnap = await db.collection("zadosti").get();
-          zadostiSnap.forEach(doc => {
-            const zadost = doc.data();
-            if (zadost.od && zadost.do && zadost.email === userEmail) {
-              let color = '#999';
-              if (zadost.stav === 'schváleno') color = 'green';
-              else if (zadost.stav === 'zamítnuto') color = 'red';
+          const loadData = async () => {
+            try {
+              const user = firebase.auth().currentUser;
+              if (!user) return;
 
-              events.push({
-                title: `${zadost.typ} (${zadost.stav})`,
-                start: zadost.od,
-                end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: color
+              // Žádosti
+              const zadostiSnap = await db.collection("zadosti").get();
+              zadostiSnap.forEach(doc => {
+                const zadost = doc.data();
+                if (zadost.od && zadost.do && zadost.email === userEmail) {
+                  let color = '#999';
+                  if (zadost.stav === 'schváleno') color = 'green';
+                  else if (zadost.stav === 'zamítnuto') color = 'red';
+
+                  events.push({
+                    title: `${zadost.typ} (${zadost.stav})`,
+                    start: zadost.od,
+                    end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
+                    color: color
+                  });
+                }
               });
+
+              // Směny
+              const smenySnap = await db.collection("smeny").get();
+              smenySnap.forEach(doc => {
+                const smena = doc.data();
+                if (smena.od && smena.do && smena.email === userEmail) {
+                  events.push({
+                    title: "Směna",
+                    start: smena.od,
+                    end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
+                    color: "#007bff",
+                    typ: "smena"
+                  });
+                }
+              });
+
+              // Svátky
+              const year = new Date().getFullYear();
+              const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`);
+              const holidays = await response.json();
+              holidays.forEach(s => {
+                events.push({
+                  title: `Svátek – ${s.localName}`,
+                  start: s.date,
+                  color: "#f9e79f"
+                });
+              });
+
+              successCallback(events);
+            } catch (err) {
+              console.error("Chyba při načítání událostí:", err);
+              failureCallback(err);
             }
-          });
+          };
 
-          // Směny
-          const smenySnap = await db.collection("smeny").get();
-          smenySnap.forEach(doc => {
-            const smena = doc.data();
-            if (smena.od && smena.do && smena.email === userEmail) {
-              events.push({
-                title: "Směna",
-                start: smena.od,
-                end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff",
-                typ: "smena"
-              });
-            }
-          });
-
-          // Svátky
-          try {
-            const currentYear = new Date().getFullYear();
-            const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${currentYear}/CZ`);
-            const holidays = await response.json();
-            holidays.forEach(svatek => {
-              events.push({
-                title: `Svátek – ${svatek.localName}`,
-                start: svatek.date,
-                color: "#f9e79f"
-              });
-            });
-          } catch (error) {
-            console.error("Chyba při načítání svátků:", error);
-          }
-
-          successCallback(events);
+          loadData();
         },
 
         select: function (info) {
