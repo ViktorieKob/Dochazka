@@ -2,47 +2,16 @@
 <html lang="cs">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Úprava směn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-    }
-    input, select, textarea {
-      padding: 5px;
-      width: 95%;
-    }
-    button {
-      padding: 5px 10px;
-      margin-top: 5px;
-    }
-    .barva-sestra {
-      background-color: #007bff;
-      color: white;
-    }
-    .barva-druhasestra {
-      background-color: #6f42c1;
-      color: white;
-    }
-    .barva-treti {
-      background-color: #20c997;
-      color: white;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: center; }
+    select, input[type="text"], input[type="time"] { padding: 5px; font-size: 14px; }
   </style>
 </head>
 <body>
-
   <h2>Úprava směn</h2>
   <table id="smenyTable">
     <thead>
@@ -60,6 +29,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
@@ -67,63 +37,59 @@
       projectId: "dochazka-app",
       storageBucket: "dochazka-app.appspot.com",
       messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432",
-      measurementId: "G-G8PPKTK907"
+      appId: "1:912220280247:web:e0b27491b9234cba984432"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     const pacienti = ["Paseková", "Dragoun", "Žáková", "Chmarníková", "Drbohlavová"];
 
-    async function nactiSmeny() {
+    function barva(email) {
+      if (email === "sestra@test.cz") return "#007bff";
+      if (email === "druhasestra@test.cz") return "#6f42c1";
+      if (email === "treti@test.cz") return "#20c997";
+      return "#999";
+    }
+
+    db.collection("smeny").orderBy("od").get().then(snapshot => {
       const tbody = document.querySelector("#smenyTable tbody");
-      tbody.innerHTML = "";
-      const snapshot = await db.collection("smeny").get();
       snapshot.forEach(doc => {
-        const data = doc.data();
-        const row = document.createElement("tr");
+        const d = doc.data();
+        const tr = document.createElement("tr");
+        tr.style.backgroundColor = barva(d.email);
 
-        // Barva podle sestry
-        let trClass = "";
-        if (data.email === "sestra@test.cz") trClass = "barva-sestra";
-        if (data.email === "druhasestra@test.cz") trClass = "barva-druhasestra";
-        if (data.email === "treti@test.cz") trClass = "barva-treti";
-
-        row.className = trClass;
-
-        row.innerHTML = `
-          <td>${data.od || ""}</td>
-          <td>${data.email || ""}</td>
+        tr.innerHTML = `
+          <td>${d.od}</td>
+          <td>${d.email}</td>
           <td>
             <select>
-              <option value="">— vyber —</option>
-              ${pacienti.map(p => `<option ${data.pacient === p ? "selected" : ""}>${p}</option>`).join("")}
+              <option value="">— vybrat —</option>
+              ${pacienti.map(p => `<option value="${p}" ${d.pacient === p ? "selected" : ""}>${p}</option>`).join("")}
             </select>
           </td>
-          <td><input type="time" value="${data.cas || ""}"/></td>
-          <td><textarea>${data.komentar || ""}</textarea></td>
-          <td><button onclick="uloz('${doc.id}', this)">Uložit</button></td>
+          <td><input type="time" value="${d.cas || ""}"></td>
+          <td><input type="text" value="${d.komentar || ""}" placeholder="Poznámka"></td>
+          <td><button>Uložit</button></td>
         `;
-        tbody.appendChild(row);
+
+        tr.querySelector("button").addEventListener("click", () => {
+          const pacient = tr.querySelector("select").value;
+          const cas = tr.querySelector("input[type='time']").value;
+          const komentar = tr.querySelector("input[type='text']").value;
+
+          db.collection("smeny").doc(doc.id).update({
+            pacient: pacient,
+            cas: cas,
+            komentar: komentar
+          }).then(() => {
+            alert("Uloženo.");
+          });
+        });
+
+        tbody.appendChild(tr);
       });
-    }
-
-    async function uloz(id, btn) {
-      const row = btn.closest("tr");
-      const pacient = row.querySelector("select").value;
-      const cas = row.querySelector("input").value;
-      const komentar = row.querySelector("textarea").value;
-
-      await db.collection("smeny").doc(id).update({
-        pacient,
-        cas,
-        komentar
-      });
-
-      alert("Uloženo.");
-    }
-
-    nactiSmeny();
+    });
   </script>
 </body>
 </html>
