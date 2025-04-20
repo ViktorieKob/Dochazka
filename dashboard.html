@@ -40,6 +40,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     const calendarEl = document.getElementById("calendar");
     let selectedDates = [];
+    let selectedType = null;
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: "dayGridMonth",
@@ -51,9 +52,7 @@
           selectedDates.push(current.toISOString().split('T')[0]);
           current.setDate(current.getDate() + 1);
         }
-
-        // Odebrat poslední datum, protože FullCalendar bere range včetně konce
-        selectedDates.pop();
+        selectedDates.pop(); // remove the end date (exclusive in FullCalendar)
 
         showTypeSelection();
       }
@@ -64,37 +63,54 @@
     function showTypeSelection() {
       const modal = document.createElement("div");
       modal.innerHTML = `
-        <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:#00000099; display:flex; align-items:center; justify-content:center; z-index:1000;">
-          <div style="background:white; padding:20px; border-radius:10px; text-align:center;">
+        <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:#00000088; display:flex; align-items:center; justify-content:center; z-index:1000;">
+          <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
             <h3>Vyber typ volna</h3>
-            <button id="btn-dovolena">Dovolená</button>
-            <button id="btn-neplacene">Neplacené volno</button>
+            <div style="margin-bottom: 15px;">
+              <button id="btn-dovolena">Dovolená</button>
+              <button id="btn-neplacene">Neplacené volno</button>
+            </div>
+            <div id="volba-info" style="margin-bottom: 15px; display:none;"></div>
+            <button id="btn-potvrdit" style="display:none;">Potvrdit žádost</button>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
 
-      document.getElementById("btn-dovolena").onclick = () => submitRequest("dovolená", modal);
-      document.getElementById("btn-neplacene").onclick = () => submitRequest("neplacené", modal);
-    }
+      const infoDiv = modal.querySelector("#volba-info");
+      const confirmBtn = modal.querySelector("#btn-potvrdit");
 
-    async function submitRequest(type, modal) {
-      const user = auth.currentUser;
-      if (user) {
-        for (let date of selectedDates) {
-          await addDoc(collection(db, "zadosti"), {
-            datum: date,
-            typ: type,
-            email: user.email,
-            stav: "čeká na schválení"
-          });
-        }
-        alert("Žádost(y) odeslány.");
-      } else {
-        alert("Uživatel není přihlášen.");
+      function zobrazSouhrn(typ) {
+        selectedType = typ;
+        infoDiv.innerHTML = `
+          <p><strong>Typ volna:</strong> ${typ}</p>
+          <p><strong>Vybrané dny:</strong></p>
+          <ul style="text-align:left; max-height:150px; overflow-y:auto;">${selectedDates.map(d => `<li>${d}</li>`).join("")}</ul>
+        `;
+        infoDiv.style.display = "block";
+        confirmBtn.style.display = "inline-block";
       }
 
-      document.body.removeChild(modal);
+      modal.querySelector("#btn-dovolena").onclick = () => zobrazSouhrn("dovolená");
+      modal.querySelector("#btn-neplacene").onclick = () => zobrazSouhrn("neplacené volno");
+
+      confirmBtn.onclick = async () => {
+        const user = auth.currentUser;
+        if (user) {
+          for (let date of selectedDates) {
+            await addDoc(collection(db, "zadosti"), {
+              datum: date,
+              typ: selectedType,
+              email: user.email,
+              stav: "čeká na schválení"
+            });
+          }
+          alert("Žádost odeslána.");
+        } else {
+          alert("Uživatel není přihlášen.");
+        }
+        document.body.removeChild(modal);
+      };
     }
   });
 </script>
