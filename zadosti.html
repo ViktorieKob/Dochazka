@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Žádosti o volno – Vedoucí</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background-color: #f0f0f0; }
+    button { margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Žádosti o volno</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Datum</th>
+        <th>Typ</th>
+        <th>Stav</th>
+        <th>Akce</th>
+      </tr>
+    </thead>
+    <tbody id="zadosti-tabulka">
+      <tr><td colspan="5">Načítání žádostí...</td></tr>
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
+      authDomain: "dochazka-app.firebaseapp.com",
+      projectId: "dochazka-app",
+      storageBucket: "dochazka-app.firebasestorage.app",
+      messagingSenderId: "912220280247",
+      appId: "1:912220280247:web:e0b27491b9234cba984432",
+      measurementId: "G-G8PPKTK907"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function nactiZadosti() {
+      const tabulka = document.getElementById("zadosti-tabulka");
+      tabulka.innerHTML = "";
+
+      const querySnapshot = await getDocs(collection(db, "zadosti"));
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${data.email}</td>
+          <td>${data.datum}</td>
+          <td>${data.typ}</td>
+          <td>${data.stav}</td>
+          <td>
+            <button onclick="schval('${docSnapshot.id}')">Schválit</button>
+            <button onclick="zamitni('${docSnapshot.id}')">Zamítnout</button>
+          </td>
+        `;
+
+        tabulka.appendChild(tr);
+      });
+    }
+
+    window.schval = async function(id) {
+      const ref = doc(db, "zadosti", id);
+      await updateDoc(ref, { stav: "schváleno" });
+      nactiZadosti();
+    };
+
+    window.zamitni = async function(id) {
+      const ref = doc(db, "zadosti", id);
+      await updateDoc(ref, { stav: "zamítnuto" });
+      nactiZadosti();
+    };
+
+    nactiZadosti();
+  </script>
+</body>
+</html>
