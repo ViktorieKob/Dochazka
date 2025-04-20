@@ -7,13 +7,35 @@
   <style>
     body { font-family: sans-serif; padding: 20px; }
     #calendar { max-width: 900px; margin: 0 auto; }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .modal button {
+      margin: 5px;
+      padding: 10px 20px;
+    }
   </style>
 </head>
 <body>
   <h2>Docházka – Kalendář</h2>
   <div id="calendar"></div>
 
-  <!-- FullCalendar + Firebase -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -45,24 +67,55 @@
           endDate.setDate(endDate.getDate() - 1);
           const end = endDate.toISOString().split('T')[0];
 
-          const typ = prompt("Zadej typ volna: dovolená / neplacené");
-          const user = auth.currentUser;
-
-          if (user && typ) {
-            db.collection("zadosti").add({
-              email: user.email,
-              od: start,
-              do: end,
-              typ: typ,
-              stav: "čeká na schválení"
-            }).then(() => alert("Žádost byla uložena."));
-          } else {
-            alert("Musíš být přihlášený a zadat typ volna.");
-          }
+          showModal(start, end);
         }
       });
       calendar.render();
     });
+
+    function showModal(start, end) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal">
+          <h3>Vyber typ volna</h3>
+          <button onclick="selectType('dovolená')">Dovolená</button>
+          <button onclick="selectType('neplacené')">Neplacené volno</button>
+          <div id="summary" style="display:none; margin-top:15px;"></div>
+          <button id="confirmBtn" style="display:none;">Potvrdit žádost</button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      window.selectType = function(type) {
+        const summary = modal.querySelector('#summary');
+        summary.innerHTML = `
+          <p><strong>Typ volna:</strong> ${type}</p>
+          <p><strong>Od:</strong> ${start}</p>
+          <p><strong>Do:</strong> ${end}</p>
+        `;
+        summary.style.display = 'block';
+        const confirmBtn = modal.querySelector('#confirmBtn');
+        confirmBtn.style.display = 'inline-block';
+
+        confirmBtn.onclick = async () => {
+          const user = firebase.auth().currentUser;
+          if (user) {
+            await db.collection("zadosti").add({
+              email: user.email,
+              od: start,
+              do: end,
+              typ: type,
+              stav: "čeká na schválení"
+            });
+            alert("Žádost byla odeslána.");
+            document.body.removeChild(modal);
+          } else {
+            alert("Uživatel není přihlášen.");
+          }
+        };
+      };
+    }
   </script>
 </body>
 </html>
