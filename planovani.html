@@ -102,12 +102,16 @@
         },
         eventClick: async function(info) {
           if (info.event.extendedProps.typ === "smena") {
-            const confirmDelete = confirm(`Opravdu chceš smazat směnu ${info.event.title}?`);
+            const datum = info.event.startStr;
+            const confirmDelete = confirm(`Opravdu chceš smazat směnu ${info.event.title} na den ${datum}?`);
             if (confirmDelete) {
-              const id = info.event.extendedProps.id;
-              await db.collection("smeny").doc(id).delete();
-              alert("Směna smazána.");
-              calendar.refetchEvents();
+              try {
+                await db.collection("smeny").doc(info.event.id).delete();
+                alert("Směna smazána.");
+                calendar.refetchEvents();
+              } catch (error) {
+                alert("Chyba při mazání směny: " + error.message);
+              }
             }
           }
         },
