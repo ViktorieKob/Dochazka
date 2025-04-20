@@ -52,14 +52,22 @@
         tbody.innerHTML = '';
         snapshot.forEach(doc => {
           const zadost = doc.data();
+
+          const stav = zadost.stav || '—';
+          const trClass =
+            stav === "schváleno" ? "radek-schvaleno" :
+            stav === "zamítnuto" ? "radek-zamitnuto" :
+            "radek-ceka";
+
           const tr = document.createElement('tr');
+          tr.className = trClass;
 
           tr.innerHTML = `
             <td>${zadost.email || ''}</td>
             <td>${zadost.od || '—'}</td>
             <td>${zadost.do || '—'}</td>
             <td>${zadost.typ || '—'}</td>
-            <td>${zadost.stav || '—'}</td>
+            <td>${stav}</td>
             <td>
               <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
               <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
@@ -72,15 +80,15 @@
     }
 
     function aktualizujZadost(id, stav) {
-  const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
-  if (!potvrdit) return;
+      const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
+      if (!potvrdit) return;
 
-  db.collection("zadosti").doc(id).update({ stav: stav })
-    .then(() => {
-      alert(`Žádost byla ${stav}.`);
-      nactiZadosti();
-    });
-}
+      db.collection("zadosti").doc(id).update({ stav: stav })
+        .then(() => {
+          alert(`Žádost byla ${stav}.`);
+          nactiZadosti();
+        });
+    }
 
     function smazatZadost(id) {
       if (confirm("Opravdu chceš tuto žádost smazat?")) {
