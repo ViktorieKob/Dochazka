@@ -9,7 +9,11 @@ window.login = function () {
 
   signInWithEmailAndPassword(auth, email, password)
     .then(() => {
-      window.location.href = "dashboard.html";
+      if (email.toLowerCase() === "vedouci@test.cz") {
+        window.location.href = "zadosti.html";
+      } else {
+        window.location.href = "dashboard.html";
+      }
     })
     .catch((error) => {
       errorP.textContent = "Chyba přihlášení: " + error.message;
