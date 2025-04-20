@@ -58,18 +58,43 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       const calendarEl = document.getElementById('calendar');
+
       const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         selectable: true,
+
+        events: async function(fetchInfo, successCallback) {
+          const snapshot = await db.collection("zadosti").get();
+          const events = [];
+
+          snapshot.forEach(doc => {
+            const zadost = doc.data();
+            if (zadost.od && zadost.do) {
+              let color = '#999'; // výchozí šedá (čeká)
+              if (zadost.stav === 'schváleno') color = 'green';
+              else if (zadost.stav === 'zamítnuto') color = 'red';
+
+              events.push({
+                title: `${zadost.typ} (${zadost.stav})`,
+                start: zadost.od,
+                end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
+                color: color
+              });
+            }
+          });
+
+          successCallback(events);
+        },
+
         select: function (info) {
           const start = info.startStr;
           const endDate = new Date(info.end);
           endDate.setDate(endDate.getDate() - 1);
           const end = endDate.toISOString().split('T')[0];
-
           showModal(start, end);
         }
       });
+
       calendar.render();
     });
 
