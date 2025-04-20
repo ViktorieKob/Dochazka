@@ -17,7 +17,6 @@
       margin: -20px -20px 20px -20px;
       overflow-x: auto;
       white-space: nowrap;
-      display: none;
     }
 
     nav a {
@@ -54,12 +53,7 @@
   </style>
 </head>
 <body>
-  <nav id="navMenu">
-    <a href="dashboard.html">Moje směny</a>
-    <a href="zadosti.html">Žádosti</a>
-    <a href="planovani.html">Plánování směn</a>
-    <a href="smeny.html">Úprava směn</a>
-  </nav>
+  <nav id="navMenu"></nav>
 
   <h2>Moje směny a dovolená</h2>
   <div id="calendar"></div>
@@ -103,8 +97,14 @@
 
         const userEmail = user.email;
         const isVedouci = userEmail === "vedouci@test.cz";
+
         if (isVedouci) {
-          document.getElementById("navMenu").style.display = "block";
+          document.getElementById("navMenu").innerHTML = `
+            <a href="dashboard.html">Moje směny</a>
+            <a href="zadosti.html">Žádosti</a>
+            <a href="planovani.html">Plánování směn</a>
+            <a href="smeny.html">Úprava směn</a>
+          `;
         }
 
         const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -114,6 +114,7 @@
           events: async function(fetchInfo, successCallback) {
             const events = [];
 
+            // Směny
             const smenySnap = await db.collection("smeny").where("email", "==", userEmail).get();
             smenySnap.forEach(doc => {
               const d = doc.data();
@@ -129,6 +130,7 @@
               });
             });
 
+            // Dovolená
             const dovolenaSnap = await db.collection("zadosti").where("email", "==", userEmail).get();
             dovolenaSnap.forEach(doc => {
               const d = doc.data();
@@ -141,6 +143,7 @@
               });
             });
 
+            // Svátky
             const year = new Date().getFullYear();
             const holidays = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`)
               .then(res => res.json());
@@ -156,13 +159,15 @@
 
             successCallback(events);
 
-            // Přidej legendu pro směnu jen konkrétní sestry
+            // Přidat legendu pro směny sestry
             const legend = document.getElementById("legend");
             const smenaLabel = document.createElement("div");
             smenaLabel.classList.add("legend-item");
+
             if (userEmail === "druhasestra@test.cz") smenaLabel.classList.add("purple");
             else if (userEmail === "treti@test.cz") smenaLabel.classList.add("teal");
             else smenaLabel.classList.add("blue");
+
             smenaLabel.textContent = `Směna – ${userEmail}`;
             legend.appendChild(smenaLabel);
           }
