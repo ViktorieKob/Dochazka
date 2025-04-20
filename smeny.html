@@ -5,13 +5,48 @@
   <title>Úprava směn</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { padding: 8px; border: 1px solid #ccc; text-align: center; }
-    select, input[type="text"], input[type="time"] { padding: 5px; font-size: 14px; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+
+    nav {
+      background-color: #0057a0;
+      padding: 10px;
+      margin: -20px -20px 20px -20px;
+    }
+
+    nav a {
+      color: white;
+      margin-right: 20px;
+      text-decoration: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+
+    select, input[type="time"], textarea {
+      padding: 6px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
+  <nav>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="planovani.html">Plánování směn</a>
+    <a href="smeny.html">Úprava směn</a>
+  </nav>
+
   <h2>Úprava směn</h2>
   <table id="smenyTable">
     <thead>
@@ -21,13 +56,13 @@
         <th>Pacient</th>
         <th>Čas nástupu</th>
         <th>Komentář</th>
-        <th>Uložit</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 
   <script>
@@ -42,54 +77,69 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
 
     const pacienti = ["Paseková", "Dragoun", "Žáková", "Chmarníková", "Drbohlavová"];
+    const tbody = document.querySelector("#smenyTable tbody");
 
-    function barva(email) {
-      if (email === "sestra@test.cz") return "#007bff";
-      if (email === "druhasestra@test.cz") return "#6f42c1";
-      if (email === "treti@test.cz") return "#20c997";
-      return "#999";
-    }
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        nactiSmeny();
+      } else {
+        alert("Přístup pouze pro přihlášené uživatele.");
+        window.location.href = "index.html";
+      }
+    });
 
-    db.collection("smeny").orderBy("od").get().then(snapshot => {
-      const tbody = document.querySelector("#smenyTable tbody");
+    async function nactiSmeny() {
+      const snapshot = await db.collection("smeny").get();
+      const smeny = [];
+
       snapshot.forEach(doc => {
         const d = doc.data();
-        const tr = document.createElement("tr");
-        tr.style.backgroundColor = barva(d.email);
+        smeny.push({ id: doc.id, ...d });
+      });
 
+      smeny.sort((a, b) => new Date(a.od) - new Date(b.od));
+
+      tbody.innerHTML = "";
+      smeny.forEach(smena => {
+        const tr = document.createElement("tr");
+
+        const barva = smena.email === "sestra@test.cz" ? "#007bff"
+                    : smena.email === "druhasestra@test.cz" ? "#6f42c1"
+                    : smena.email === "treti@test.cz" ? "#20c997"
+                    : "#ccc";
+
+        tr.style.backgroundColor = barva;
         tr.innerHTML = `
-          <td>${d.od}</td>
-          <td>${d.email}</td>
+          <td>${smena.od}</td>
+          <td>${smena.email}</td>
           <td>
-            <select>
+            <select onchange="aktualizujSmenu('${smena.id}', 'pacient', this.value)">
               <option value="">— vybrat —</option>
-              ${pacienti.map(p => `<option value="${p}" ${d.pacient === p ? "selected" : ""}>${p}</option>`).join("")}
+              ${pacienti.map(jmeno => `
+                <option value="${jmeno}" ${smena.pacient === jmeno ? 'selected' : ''}>${jmeno}</option>
+              `).join("")}
             </select>
           </td>
-          <td><input type="time" value="${d.cas || ""}"></td>
-          <td><input type="text" value="${d.komentar || ""}" placeholder="Poznámka"></td>
-          <td><button>Uložit</button></td>
+          <td>
+            <input type="time" value="${smena.cas || ''}" onchange="aktualizujSmenu('${smena.id}', 'cas', this.value)">
+          </td>
+          <td>
+            <textarea rows="1" onchange="aktualizujSmenu('${smena.id}', 'komentar', this.value)">${smena.komentar || ''}</textarea>
+          </td>
         `;
-
-        tr.querySelector("button").addEventListener("click", () => {
-          const pacient = tr.querySelector("select").value;
-          const cas = tr.querySelector("input[type='time']").value;
-          const komentar = tr.querySelector("input[type='text']").value;
-
-          db.collection("smeny").doc(doc.id).update({
-            pacient: pacient,
-            cas: cas,
-            komentar: komentar
-          }).then(() => {
-            alert("Uloženo.");
-          });
-        });
 
         tbody.appendChild(tr);
       });
-    });
+    }
+
+    function aktualizujSmenu(id, pole, hodnota) {
+      const update = {};
+      update[pole] = hodnota;
+      db.collection("smeny").doc(id).update(update);
+    }
   </script>
 </body>
 </html>
