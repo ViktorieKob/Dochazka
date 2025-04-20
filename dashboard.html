@@ -70,12 +70,12 @@
           snapshot.forEach(doc => {
             const zadost = doc.data();
             if (zadost.od && zadost.do) {
-              let color = '#999'; // výchozí šedá (čeká)
+              let color = '#999'; // výchozí šedá
               if (zadost.stav === 'schváleno') color = 'green';
               else if (zadost.stav === 'zamítnuto') color = 'red';
 
               events.push({
-                title: `${zadost.typ} (${zadost.stav})`,
+                title: `${zadost.email} – ${zadost.typ} (${zadost.stav})`,
                 start: zadost.od,
                 end: new Date(new Date(zadost.do).getTime() + 86400000).toISOString().split('T')[0],
                 color: color
