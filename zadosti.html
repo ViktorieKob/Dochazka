@@ -55,14 +55,15 @@
           const tr = document.createElement('tr');
 
           tr.innerHTML = `
-            <td>${zadost.email}</td>
-            <td>${zadost.od}</td>
-            <td>${zadost.do}</td>
-            <td>${zadost.typ}</td>
-            <td>${zadost.stav}</td>
+            <td>${zadost.email || ''}</td>
+            <td>${zadost.od || '—'}</td>
+            <td>${zadost.do || '—'}</td>
+            <td>${zadost.typ || '—'}</td>
+            <td>${zadost.stav || '—'}</td>
             <td>
               <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
               <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
+              <button onclick="smazatZadost('${doc.id}')">Smazat</button>
             </td>
           `;
           tbody.appendChild(tr);
@@ -78,9 +79,17 @@
         });
     }
 
+    function smazatZadost(id) {
+      if (confirm("Opravdu chceš tuto žádost smazat?")) {
+        db.collection("zadosti").doc(id).delete().then(() => {
+          alert("Žádost byla smazána.");
+          nactiZadosti();
+        });
+      }
+    }
+
     auth.onAuthStateChanged(user => {
       if (user) {
-        // Můžeš sem přidat podmínku, že jen vedoucí má přístup
         nactiZadosti();
       } else {
         alert("Přístup pouze pro přihlášené uživatele.");
