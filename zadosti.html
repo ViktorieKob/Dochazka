@@ -1,18 +1,41 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Žádosti o volno</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
-    button { padding: 6px 12px; margin: 0 5px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .schvaleno {
+      background-color: #d4edda;
+    }
+    .zamítnuto {
+      background-color: #f8d7da;
+    }
+    .ceka {
+      background-color: #fff3cd;
+    }
   </style>
 </head>
 <body>
   <h2>Žádosti o volno</h2>
-  <table id="zadostiTable">
+  <table id="requestsTable">
     <thead>
       <tr>
         <th>Email</th>
@@ -23,90 +46,79 @@
         <th>Akce</th>
       </tr>
     </thead>
-    <tbody></tbody>
+    <tbody>
+      <!-- Data budou doplněna skriptem -->
+    </tbody>
   </table>
 
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs, updateDoc, deleteDoc, doc
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.firebasestorage.app",
+      storageBucket: "dochazka-app.appspot.com",
       messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432",
-      measurementId: "G-G8PPKTK907"
+      appId: "1:912220280247:web:e0b27491b9234cba984432"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    const tbody = document.querySelector('#zadostiTable tbody');
+    const loadRequests = async () => {
+      const querySnapshot = await getDocs(collection(db, "zadosti"));
+      const tableBody = document.querySelector("#requestsTable tbody");
+      tableBody.innerHTML = "";
 
-    function nactiZadosti() {
-      db.collection("zadosti").get().then(snapshot => {
-        tbody.innerHTML = '';
-        snapshot.forEach(doc => {
-          const zadost = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const tr = document.createElement("tr");
 
-          const stav = zadost.stav || '—';
-          const trClass =
-            stav === "schváleno" ? "radek-schvaleno" :
-            stav === "zamítnuto" ? "radek-zamitnuto" :
-            "radek-ceka";
+        const stavClass = data.stav === "schváleno"
+          ? "schvaleno"
+          : data.stav === "zamítnuto"
+          ? "zamítnuto"
+          : "ceka";
 
-          const tr = document.createElement('tr');
-          tr.className = trClass;
+        tr.classList.add(stavClass);
 
-          tr.innerHTML = `
-            <td>${zadost.email || ''}</td>
-            <td>${zadost.od || '—'}</td>
-            <td>${zadost.do || '—'}</td>
-            <td>${zadost.typ || '—'}</td>
-            <td>${stav}</td>
-            <td>
-              <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
-              <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
-              <button onclick="smazatZadost('${doc.id}')">Smazat</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
+        tr.innerHTML = `
+          <td>${data.email}</td>
+          <td>${data.od}</td>
+          <td>${data.do}</td>
+          <td>${data.typ}</td>
+          <td>${data.stav}</td>
+          <td>
+            <button onclick="confirmAction(() => updateStatus('${docSnap.id}', 'schváleno'))">Schválit</button>
+            <button onclick="confirmAction(() => updateStatus('${docSnap.id}', 'zamítnuto'))">Zamítnout</button>
+            <button onclick="confirmAction(() => deleteRequest('${docSnap.id}'))">Smazat</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
       });
-    }
+    };
 
-    function aktualizujZadost(id, stav) {
-      const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
-      if (!potvrdit) return;
+    window.updateStatus = async (id, status) => {
+      await updateDoc(doc(db, "zadosti", id), { stav: status });
+      loadRequests();
+    };
 
-      db.collection("zadosti").doc(id).update({ stav: stav })
-        .then(() => {
-          alert(`Žádost byla ${stav}.`);
-          nactiZadosti();
-        });
-    }
+    window.deleteRequest = async (id) => {
+      await deleteDoc(doc(db, "zadosti", id));
+      loadRequests();
+    };
 
-    function smazatZadost(id) {
-      if (confirm("Opravdu chceš tuto žádost smazat?")) {
-        db.collection("zadosti").doc(id).delete().then(() => {
-          alert("Žádost byla smazána.");
-          nactiZadosti();
-        });
+    window.confirmAction = (callback) => {
+      if (confirm("Opravdu chcete provést tuto akci?")) {
+        callback();
       }
-    }
+    };
 
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        nactiZadosti();
-      } else {
-        alert("Přístup pouze pro přihlášené uživatele.");
-        window.location.href = "index.html";
-      }
-    });
+    loadRequests();
   </script>
 </body>
 </html>
