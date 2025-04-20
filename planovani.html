@@ -41,11 +41,11 @@
   </style>
 </head>
 <body>
-<nav style="background-color: #0057a0; padding: 10px;">
-  <a href="zadosti.html" style="color: white; margin-right: 20px; text-decoration: none;">Žádosti</a>
-  <a href="planovani.html" style="color: white; margin-right: 20px; text-decoration: none;">Plánování směn</a>
-  <a href="smeny.html" style="color: white; text-decoration: none;">Úprava směn</a>
-</nav>
+  <nav>
+    <a href="zadosti.html">Žádosti</a>
+    <a href="planovani.html">Plánování směn</a>
+    <a href="smeny.html">Úprava směn</a>
+  </nav>
 
   <h2>Plánování směn</h2>
   <div id="calendar"></div>
@@ -57,22 +57,10 @@
       <option value="sestra@test.cz">sestra@test.cz</option>
       <option value="druhasestra@test.cz">druhasestra@test.cz</option>
       <option value="treti@test.cz">treti@test.cz</option>
+      <option value="vedouci@test.cz">vedouci@test.cz</option>
     </select>
     <div id="souhrn" style="margin-top: 15px;"></div>
     <button id="potvrditBtn">Potvrdit směnu</button>
-  </div>
-
-  <div id="legenda" style="margin-top: 30px;">
-    <h4>Legenda:</h4>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <span style="background-color: green; color: white; padding: 5px;">schválená dovolená</span>
-      <span style="background-color: red; color: white; padding: 5px;">zamítnutá dovolená</span>
-      <span style="background-color: #999; color: white; padding: 5px;">čeká na schválení</span>
-      <span style="background-color: #007bff; color: white; padding: 5px;">směna (sestra@test.cz)</span>
-      <span style="background-color: #6f42c1; color: white; padding: 5px;">směna (druhasestra@test.cz)</span>
-      <span style="background-color: #20c997; color: white; padding: 5px;">směna (treti@test.cz)</span>
-      <span style="background-color: #fff3cd; color: black; padding: 5px;">svátek</span>
-    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
@@ -137,10 +125,17 @@
           smenySnap.forEach(doc => {
             const d = doc.data();
             if (d.od && d.do && d.email) {
-              let barva = "#007bff";
-              if (d.email === "sestra@test.cz") barva = "#007bff";
-              else if (d.email === "druhasestra@test.cz") barva = "#6f42c1";
-              else if (d.email === "treti@test.cz") barva = "#20c997";
+              let barva = "#007bff"; // výchozí
+
+              if (d.email === "sestra@test.cz") {
+                barva = "#007bff"; // modrá
+              } else if (d.email === "druhasestra@test.cz") {
+                barva = "#6f42c1"; // fialová
+              } else if (d.email === "treti@test.cz") {
+                barva = "#20c997"; // zelenomodrá
+              } else if (d.email === "vedouci@test.cz") {
+                barva = "#fd7e14"; // oranžová
+              }
 
               events.push({
                 id: doc.id,
@@ -165,29 +160,6 @@
                 color: barva
               });
             }
-          });
-
-          const svatky = [
-            { title: "Nový rok", date: "2025-01-01" },
-            { title: "Velký pátek", date: "2025-04-18" },
-            { title: "Velikonoční pondělí", date: "2025-04-21" },
-            { title: "Svátek práce", date: "2025-05-01" },
-            { title: "Den vítězství", date: "2025-05-08" },
-            { title: "Den upálení mistra Jana Husa", date: "2025-07-06" },
-            { title: "Den české státnosti", date: "2025-09-28" },
-            { title: "Den vzniku Československa", date: "2025-10-28" },
-            { title: "Den boje za svobodu", date: "2025-11-17" },
-            { title: "Štědrý den", date: "2025-12-24" },
-            { title: "1. svátek vánoční", date: "2025-12-25" },
-            { title: "2. svátek vánoční", date: "2025-12-26" }
-          ];
-
-          svatky.forEach(svatek => {
-            events.push({
-              title: `Svátek – ${svatek.title}`,
-              start: svatek.date,
-              color: "#fff3cd"
-            });
           });
 
           successCallback(events);
