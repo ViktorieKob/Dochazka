@@ -34,6 +34,18 @@
     .gray { background-color: gray; }
     .blue { background-color: #007bff; }
     .yellow { background-color: #f9e79f; color: black; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -48,6 +60,19 @@
     <span class="blue">směna</span>
     <span class="yellow">svátek</span>
   </div>
+
+  <h3>Moje naplánované směny:</h3>
+  <table id="smenyTabulka">
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Pacient</th>
+        <th>Čas</th>
+        <th>Komentář</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
@@ -74,6 +99,7 @@
         window.location.href = "index.html";
       } else {
         initCalendar(user.email);
+        nactiSmenyProUzivatele(user.email);
       }
     });
 
@@ -136,6 +162,24 @@
       });
 
       calendar.render();
+    }
+
+    function nactiSmenyProUzivatele(email) {
+      db.collection("smeny").where("email", "==", email).get().then(snapshot => {
+        const tbody = document.querySelector("#smenyTabulka tbody");
+        tbody.innerHTML = "";
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${d.od || "-"}</td>
+            <td>${d.pacient || "-"}</td>
+            <td>${d.cas || "-"}</td>
+            <td>${d.komentar || "-"}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
     }
   </script>
 </body>
