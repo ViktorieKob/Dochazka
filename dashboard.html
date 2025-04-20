@@ -46,7 +46,7 @@
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.firebasestorage.app",
+      storageBucket: "dochazka-app.appspot.com",
       messagingSenderId: "912220280247",
       appId: "1:912220280247:web:e0b27491b9234cba984432",
       measurementId: "G-G8PPKTK907"
@@ -75,7 +75,7 @@
         events: async function(fetchInfo, successCallback) {
           const events = [];
 
-          // Žádosti o volno (jen pro přihlášeného)
+          // Žádosti o volno
           const zadostiSnap = await db.collection("zadosti").get();
           zadostiSnap.forEach(doc => {
             const zadost = doc.data();
@@ -93,7 +93,7 @@
             }
           });
 
-          // Směny (jen pro přihlášeného)
+          // Směny
           const smenySnap = await db.collection("smeny").get();
           smenySnap.forEach(doc => {
             const smena = doc.data();
@@ -102,12 +102,13 @@
                 title: "Směna",
                 start: smena.od,
                 end: new Date(new Date(smena.do).getTime() + 86400000).toISOString().split('T')[0],
-                color: "#007bff"
+                color: "#007bff",
+                typ: "smena"
               });
             }
           });
 
-          // Státní svátky (všichni)
+          // Státní svátky
           const currentYear = new Date().getFullYear();
           try {
             const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${currentYear}/CZ`);
