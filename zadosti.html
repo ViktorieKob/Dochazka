@@ -5,40 +5,17 @@
   <title>Žádosti o volno</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
     button { padding: 6px 12px; margin: 0 5px; }
-
-    .radek-schvaleno { background-color: #2ecc71; color: white; }
-    .radek-zamitnuto { background-color: #e74c3c; color: white; }
-    .radek-ceka { background-color: #bdc3c7; color: white; }
-    .radek-svatek { background-color: #f9e79f; color: black; }
-
-    .legend {
-      font-size: 14px;
-    }
-
-    .legend span {
-      display: inline-block;
-      padding: 5px 10px;
-      margin-right: 10px;
-      border-radius: 3px;
-      color: white;
-    }
-
-    .green { background-color: #2ecc71; }
-    .red { background-color: #e74c3c; }
-    .gray { background-color: #bdc3c7; }
-    .yellow { background-color: #f9e79f; color: black; }
   </style>
 </head>
 <body>
 
   <nav style="background-color: #0057a0; padding: 10px;">
-    <a href="zadosti.html" style="color: white; margin-right: 20px; text-decoration: none;">Žádosti</a>
-    <a href="planovani.html" style="color: white; text-decoration: none;">Plánování směn</a>
-  </nav>
-
+  <a href="zadosti.html" style="color: white; margin-right: 20px; text-decoration: none;">Žádosti</a>
+  <a href="planovani.html" style="color: white; text-decoration: none;">Plánování směn</a>
+</nav>
   <h2>Žádosti o volno</h2>
   <table id="zadostiTable">
     <thead>
@@ -54,14 +31,6 @@
     <tbody></tbody>
   </table>
 
-  <div class="legend">
-    <strong>Legenda:</strong><br>
-    <span class="green">schválená žádost</span>
-    <span class="red">zamítnutá žádost</span>
-    <span class="gray">čekající žádost</span>
-    <span class="yellow">svátek</span>
-  </div>
-
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -71,75 +40,59 @@
       apiKey: "AIzaSyD4j1bO7JDbzUM-ca4AWUSkGYpmglWK_IQ",
       authDomain: "dochazka-app.firebaseapp.com",
       projectId: "dochazka-app",
-      storageBucket: "dochazka-app.appspot.com",
+      storageBucket: "dochazka-app.firebasestorage.app",
       messagingSenderId: "912220280247",
-      appId: "1:912220280247:web:e0b27491b9234cba984432"
+      appId: "1:912220280247:web:e0b27491b9234cba984432",
+      measurementId: "G-G8PPKTK907"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+
     const tbody = document.querySelector('#zadostiTable tbody');
 
-    async function nactiZadosti() {
-      tbody.innerHTML = '';
+    function nactiZadosti() {
+      db.collection("zadosti").get().then(snapshot => {
+        tbody.innerHTML = '';
+        snapshot.forEach(doc => {
+          const zadost = doc.data();
 
-      // Načíst žádosti z Firestore
-      const snapshot = await db.collection("zadosti").get();
-      snapshot.forEach(doc => {
-        const zadost = doc.data();
-        const stav = zadost.stav || '—';
-        const trClass =
-          stav === "schváleno" ? "radek-schvaleno" :
-          stav === "zamítnuto" ? "radek-zamitnuto" :
-          "radek-ceka";
+          const stav = zadost.stav || '—';
+          const trClass =
+            stav === "schváleno" ? "radek-schvaleno" :
+            stav === "zamítnuto" ? "radek-zamitnuto" :
+            "radek-ceka";
 
-        const tr = document.createElement('tr');
-        tr.className = trClass;
-        tr.innerHTML = `
-          <td>${zadost.email || ''}</td>
-          <td>${zadost.od || '—'}</td>
-          <td>${zadost.do || '—'}</td>
-          <td>${zadost.typ || '—'}</td>
-          <td>${stav}</td>
-          <td>
-            <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
-            <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
-            <button onclick="smazatZadost('${doc.id}')">Smazat</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      // Přidat svátky z veřejného API
-      try {
-        const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${new Date().getFullYear()}/CZ`);
-        const svatky = await res.json();
-        svatky.forEach(svatek => {
           const tr = document.createElement('tr');
-          tr.className = "radek-svatek";
+          tr.className = trClass;
+
           tr.innerHTML = `
-            <td>—</td>
-            <td>${svatek.date}</td>
-            <td>${svatek.date}</td>
-            <td>${svatek.localName}</td>
-            <td>svátek</td>
-            <td>—</td>
+            <td>${zadost.email || ''}</td>
+            <td>${zadost.od || '—'}</td>
+            <td>${zadost.do || '—'}</td>
+            <td>${zadost.typ || '—'}</td>
+            <td>${stav}</td>
+            <td>
+              <button onclick="aktualizujZadost('${doc.id}', 'schváleno')">Schválit</button>
+              <button onclick="aktualizujZadost('${doc.id}', 'zamítnuto')">Zamítnout</button>
+              <button onclick="smazatZadost('${doc.id}')">Smazat</button>
+            </td>
           `;
           tbody.appendChild(tr);
         });
-      } catch (e) {
-        console.warn("Nepodařilo se načíst svátky:", e);
-      }
+      });
     }
 
     function aktualizujZadost(id, stav) {
       const potvrdit = confirm(`Opravdu chceš ${stav === 'schváleno' ? 'schválit' : 'zamítnout'} tuto žádost?`);
       if (!potvrdit) return;
-      db.collection("zadosti").doc(id).update({ stav: stav }).then(() => {
-        alert(`Žádost byla ${stav}.`);
-        nactiZadosti();
-      });
+
+      db.collection("zadosti").doc(id).update({ stav: stav })
+        .then(() => {
+          alert(`Žádost byla ${stav}.`);
+          nactiZadosti();
+        });
     }
 
     function smazatZadost(id) {
