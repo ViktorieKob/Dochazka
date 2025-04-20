@@ -50,6 +50,20 @@
     .purple { background-color: #6f42c1; }
     .teal { background-color: #20c997; }
     .yellow { background-color: #fff3cd; color: #333; }
+
+    #zadostForm {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      max-width: 500px;
+    }
+
+    select, button {
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -58,6 +72,19 @@
   <h2>Moje směny a dovolená</h2>
   <div id="calendar"></div>
 
+  <!-- FORMULÁŘ PRO ZADÁNÍ VOLNA -->
+  <div id="zadostForm" style="display: none;">
+    <h3>Vybrané dny: <span id="rangeText"></span></h3>
+    <label for="typVolna">Typ volna:</label>
+    <select id="typVolna">
+      <option value="Dovolená">Dovolená</option>
+      <option value="Neplacené volno">Neplacené volno</option>
+    </select>
+    <br /><br />
+    <button id="potvrditZadostBtn">Potvrdit žádost</button>
+  </div>
+
+  <!-- LEGENDA -->
   <div class="legend" id="legend">
     <strong>Legenda:</strong><br />
     <div class="legend-item green">Schválená dovolená</div>
@@ -66,6 +93,7 @@
     <div class="legend-item yellow">Státní svátek</div>
   </div>
 
+  <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -107,14 +135,28 @@
           `;
         }
 
+        let startDate = null;
+        let endDate = null;
+
         const calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: "dayGridMonth",
           height: "auto",
-          locale: 'cs',
+          selectable: true,
+
+          select: function(info) {
+            startDate = info.startStr;
+            const end = new Date(info.end);
+            end.setDate(end.getDate() - 1);
+            endDate = end.toISOString().split("T")[0];
+
+            document.getElementById("rangeText").textContent = `${startDate} – ${endDate}`;
+            document.getElementById("zadostForm").style.display = "block";
+          },
+
           events: async function(fetchInfo, successCallback) {
             const events = [];
 
-            // Směny
+            // SMĚNY
             const smenySnap = await db.collection("smeny").where("email", "==", userEmail).get();
             smenySnap.forEach(doc => {
               const d = doc.data();
@@ -130,7 +172,7 @@
               });
             });
 
-            // Dovolená
+            // DOVOLENÁ
             const dovolenaSnap = await db.collection("zadosti").where("email", "==", userEmail).get();
             dovolenaSnap.forEach(doc => {
               const d = doc.data();
@@ -143,23 +185,25 @@
               });
             });
 
-            // Svátky
+            // SVÁTKY
             const year = new Date().getFullYear();
-            const holidays = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`)
-              .then(res => res.json());
-
-            holidays.forEach(holiday => {
-              events.push({
-                title: holiday.localName,
-                start: holiday.date,
-                color: "#fff3cd",
-                textColor: "#333"
+            try {
+              const holidays = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CZ`).then(res => res.json());
+              holidays.forEach(holiday => {
+                events.push({
+                  title: holiday.localName,
+                  start: holiday.date,
+                  color: "#fff3cd",
+                  textColor: "#333"
+                });
               });
-            });
+            } catch (e) {
+              console.error("Chyba při načítání svátků:", e);
+            }
 
             successCallback(events);
 
-            // Přidat legendu pro směny sestry
+            // LEGENDU PŘIDAT PODLE EMAILU
             const legend = document.getElementById("legend");
             const smenaLabel = document.createElement("div");
             smenaLabel.classList.add("legend-item");
@@ -174,6 +218,21 @@
         });
 
         calendar.render();
+
+        document.getElementById("potvrditZadostBtn").addEventListener("click", async () => {
+          const typ = document.getElementById("typVolna").value;
+          await db.collection("zadosti").add({
+            email: userEmail,
+            od: startDate,
+            do: endDate,
+            typ: typ,
+            stav: "čeká"
+          });
+
+          alert("Žádost o volno byla odeslána.");
+          document.getElementById("zadostForm").style.display = "none";
+          calendar.refetchEvents();
+        });
       });
     });
   </script>
